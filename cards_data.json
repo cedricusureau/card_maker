@@ -1,0 +1,14 @@
+[
+    {
+        "image_path": "img/sword.png",
+        "title": "Épée de Légende",
+        "text": "Cette épée octroie +10 d'attaque à son porteur.",
+        "pdf_output": "Card1.pdf"
+    },
+    {
+        "image_path": "img/bouclier.png",
+        "title": "Bouclier Ancestral",
+        "text": "Ce bouclier augmente la défense de +15.",
+        "pdf_output": "Card2.pdf"
+    }
+]

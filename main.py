@@ -1,35 +1,63 @@
-import pandas as pd
-import src.simple_func as simple_func
-import datetime
-import src.big_func as big_func
-import argparse
+from reportlab.pdfgen import canvas
+from reportlab.lib.units import inch, mm
+from reportlab.lib import colors
+from reportlab.platypus import Image, Frame, Paragraph
+from reportlab.lib.utils import ImageReader
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.lib.pagesizes import letter
+import json
 
-# Création de l'objet parser
-parser = argparse.ArgumentParser(
-    description="Exécute des opérations sur des données en utilisant des paramètres spécifiques.")
 
-# Ajout des arguments
-parser.add_argument('--var1', default="classe1", help='Description pour variable1')
-parser.add_argument('--var2', default="HLA-A", help='Description pour variable2')
-parser.add_argument('--input', default="data/exemple.csv", help='Fichier d\'entrée CSV')
-parser.add_argument('--run-name', default=datetime.datetime.now().strftime("%Y-%m-%d_%Hh%Mm%Ss"),
-                    help='Nom de la session en cours')
+def create_enhanced_tcg_cards(json_filepath, parchment_background_path):
+    with open(json_filepath, 'r', encoding='utf-8') as file:
+        cards = json.load(file)
 
-args = parser.parse_args()
+    styles = getSampleStyleSheet()
+    title_style = ParagraphStyle('CardTitle', parent=styles['Heading1'], fontSize=10, leading=12, spaceAfter=6,
+                                 borderColor=colors.black,
+                                 borderWidth=1, borderPadding=(2, 2, 2, 2), borderRadius=2, backColor=colors.lightgrey)
+    text_style = ParagraphStyle('CardText', parent=styles['BodyText'], spaceAfter=6, borderColor=colors.black,
+                                borderWidth=1, borderPadding=(4, 2, 4, 2), borderRadius=2, backColor=colors.whitesmoke)
 
-# Utilisation des arguments argsparse pour construire les chemins des répertoires et fichiers
-output_directory = f"results/{args.run_name}/{args.var1}_{args.var2}.csv"
-figure_directory = f"figures/{args.run_name}/{args.var1}_{args.var2}.png"
+    for card in cards:
+        filename = f"figures/{card['pdf_output']}"
+        c = canvas.Canvas(filename, pagesize=(2.48 * inch, 3.46 * inch))
+        safe_area_x = (2.48 - 2.283) / 2 * inch
+        safe_area_y = (3.46 - 3.27) / 2 * inch
+        safe_width = 2.283 * inch
+        safe_height = 3.27 * inch
 
-if __name__ == "__main__":
-    # Make run_name subdir in results and figures
-    simple_func.make_results_folder(args.run_name)
+        # Dimensions du cadre de l'image
+        frame_width = safe_width  # Utiliser toute la largeur de la zone de sécurité
+        frame_height = 1.53 * inch  # Hauteur augmentée pour une meilleure proportion
 
-    # Load data
-    df = pd.read_csv(args.input, sep=";")
+        # Draw parchment background
+        parchment = ImageReader(parchment_background_path)
+        c.drawImage(parchment, 0, 0, width=2.48 * inch, height=3.46 * inch)
 
-    # apply big func on df
-    df = big_func.big_func(df, args.var1, args.var2)
+        # Charger et dimensionner l'image
+        img = ImageReader(card["image_path"])
+        img_width, img_height = img.getSize()
+        scale_factor = min(frame_width / img_width, frame_height / img_height)
 
-    # Save df to csv
-    df.to_csv(output_directory, sep=";", index=False)
+        # Calculer la position centrée de l'image
+        img_x = safe_area_x  # Utiliser directement la marge x pour aligner à gauche
+        img_y = safe_area_y + safe_height - frame_height - 10 * mm  # Ajuster la position verticale
+
+        c.drawImage(img, img_x, img_y, width=img_width * scale_factor, height=img_height * scale_factor)
+
+        # Add title above the image
+        title = Paragraph(card["title"], title_style)
+        title_height = title.wrap(safe_width, 0.25 * inch)[1]
+        title.drawOn(c, safe_area_x, img_y + frame_height + 6 * mm)
+
+        # Add descriptive text with rounded border
+        desc_text = Paragraph(card["text"], text_style)
+        desc_text_height = desc_text.wrap(safe_width, safe_height - frame_height - title_height - 0.25 * inch)[1]
+        desc_text.drawOn(c, safe_area_x, safe_area_y + 10)
+
+        # Save the PDF
+        c.save()
+
+
+create_enhanced_tcg_cards("cards_data.json", "img/parchemin.png")
